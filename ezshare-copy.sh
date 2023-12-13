@@ -2,13 +2,13 @@
 
 # Script configuration
 EZSHARE_WIFI="ezShare"
-HOME_WIFI="homewifi"
+HOME_WIFI="jrb-access"
 ezshare_local="/mnt/resmed"
 TODAYS_DATE=$(date +%Y%m%d)
 ZIP_FILE="${ezshare_local}/sleephq-${TODAYS_DATE}.zip"
 LOG_FILE="/var/log/ezshare_sync.log"
-TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
-TELEGRAM_CHAT_ID="your_telegram_chat_id"
+TELEGRAM_BOT_TOKEN="6410099964:AAE2iXJ-1O6JlHEwupHiiHyfC8M2TWxfCi0"
+TELEGRAM_CHAT_ID="591095911"
 DROPBOX_DIR="dropbox:resmed"
 
 # Function to check and install missing prerequisites
@@ -73,17 +73,40 @@ else
     log_message "Failed to switch to Home WiFi."
 fi
 
-# Zip today's modified files and folders
-zip_today_modified "${ezshare_local}/STR.edf"
-zip_today_modified "${ezshare_local}/Identification.crc"
-zip_today_modified "${ezshare_local}/Identification.tgt"
-zip_today_modified "${ezshare_local}/SETTINGS"
-zip_today_modified "${ezshare_local}/DATALOG"
+# Function to add specific files and folders to the zip
+add_to_zip() {
+    local path=$1
+    if [ -e "$path" ]; then  # Check if the path exists
+        zip -q "$ZIP_FILE" "$path"
+    fi
+}
+
+# Function to add the latest three date-named subfolders from DATALOG, including their contents
+add_latest_datalog_folders() {
+    local datalog_dir="${ezshare_local}/DATALOG"
+    if [ -d "$datalog_dir" ]; then
+        # Get the latest three subdirectories based on naming convention (YYYYMMDD)
+        local latest_folders=$(ls -1 "$datalog_dir" | sort -r | head -n 3)
+        for folder in $latest_folders; do
+            # Add the folder and its contents to the zip
+            zip -rq "$ZIP_FILE" "${datalog_dir}/${folder}"
+        done
+    fi
+}
+
+# Add the latest version of each specified file and folder to the zip
+add_to_zip "${ezshare_local}/STR.edf"
+add_to_zip "${ezshare_local}/Identification.crc"
+add_to_zip "${ezshare_local}/Identification.tgt"
+add_to_zip "${ezshare_local}/SETTINGS"
+
+# Add the latest three date-named subfolders from DATALOG
+add_latest_datalog_folders
 
 if [ -f "$ZIP_FILE" ] && [ -s "$ZIP_FILE" ]; then
-    log_message "Zip file for today's data created successfully."
+    log_message "Zip file created successfully."
 else
-    log_message "No new files to zip for today."
+    log_message "No files to zip."
 fi
 
 # Upload to Dropbox using rclone
